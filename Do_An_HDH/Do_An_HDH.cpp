@@ -2,8 +2,8 @@
 #include<iostream>
 #include <stdio.h>
 #include<sstream>
-
 using namespace std;
+
 int ReadSector(LPCWSTR  drive, int readPoint, BYTE sector[512])
 {
     int retCode = 0;
@@ -25,13 +25,7 @@ int ReadSector(LPCWSTR  drive, int readPoint, BYTE sector[512])
     }
 
     SetFilePointer(device, readPoint, NULL, FILE_BEGIN);//Set a Point to Read
-
-    /*DWORD SetFilePointer(
-        [in]                HANDLE hFile,
-        [in]                LONG   lDistanceToMove,
-        [in, out, optional] PLONG  lpDistanceToMoveHigh,
-        [in]                DWORD  dwMoveMethod
-    );*/
+    /*DWORD SetFilePointer(HANDLE hFile,LONG   lDistanceToMove,PLONG  lpDistanceToMoveHigh,DWORD  dwMoveMethod);*/
 
     if (!ReadFile(device, sector, 512, &bytesRead, NULL))
     {
@@ -39,9 +33,43 @@ int ReadSector(LPCWSTR  drive, int readPoint, BYTE sector[512])
     }
     else
     {
-        printf("Success!\n");
+        printf("Doc sector thanh cong!\n");
     }
 }
+
+//Hàm chuyển 1 ký tự ASCII về chuỗi dạng hexa
+string convertByteToHex(BYTE byte) {
+    stringstream sstream;
+    sstream << std::hex << (int)byte;
+    string result = sstream.str();
+    if (result.length() == 1)
+        result = "0" + result;
+    return result;
+}
+
+
+int convertHexToDec(string hexVal)
+{
+    int len = hexVal.size();
+    int base = 1;
+    int dec_val = 0;
+
+
+    for (int i = len - 1; i >= 0; i--) {
+
+        if (hexVal[i] >= '0' && hexVal[i] <= '9') {
+            dec_val += (int(hexVal[i]) - 48) * base;
+            base = base * 16;
+        }
+
+        else if (hexVal[i] >= 'A' && hexVal[i] <= 'F') {
+            dec_val += (int(hexVal[i]) - 55) * base;
+            base = base * 16;
+        }
+    }
+    return dec_val;
+}
+
 int main(int argc, char** argv)
 {
     struct BOOTSECTOR {
@@ -65,9 +93,9 @@ int main(int argc, char** argv)
         //char FAT_type[8];
         //char loader[448];
         //char Mark[2];
-        char Jump_Code[3];
-        char OEM_ID[8];
-        char Byte_Per_Sector[4];
+        char Jump_Code[3];  //012
+        char OEM_ID[8];     //345678910
+        int Byte_Per_Sector;
         char Sector_Per_Cluster;
         char Sector_In_Bootsector[2];
         char Number_Of_FAT;
@@ -96,46 +124,29 @@ int main(int argc, char** argv)
         char Dau_Hieu_Ket_Thuc_Boot_Sector[2];  //AA 55
     };
     BYTE sector[512];
-
-    struct Hexa {
-        char h[2];
-    };
-    Hexa hexaSector[512];
-
-    stringstream sstream;
-
-    for (int i = 0; i < 512; i++) {
-        sstream << hex << (sector[i] - 0);
-        string temp = sstream.str();
-        hexaSector[i].h[0] = temp[0];
-        hexaSector[i].h[1] = temp[1];
-    }
-    //scanf("%x", hexArr[0]);
+    string HSector[512]; //Mảng lưu thông tin sector dạng hexa
     BOOTSECTOR boot;
+    string temp;         //Lưu trữ chuỗi hexa của phần đang đọc thông tin  
     ReadSector(L"\\\\.\\H:", 0, sector);
+    
+
     for (int i = 0; i < 512; i++) {
-        cout << hexaSector[i].h[0] << hexaSector[i].h[1] << " ";
-        //cout<<sector[i];
-        //printf("%02x ", sector[i]);
-        //if ((i+1) % 16 == 0) cout << endl;
+        HSector[i] = convertByteToHex(sector[i]);
+        //cout << HSector[i] << " ";
     }
+
 
     //Read data from bootsector bootsector
 
     //OS Version
-    for (int i = 3; i < 11; i++) {
-        boot.OEM_ID[i - 3] = sector[i];
-    }
+    //for (int i = 3; i < 11; i++) {
+    //    boot.OEM_ID[i - 3] = sector[i];
+    //}
+    //cout << "OEM: " << boot.OEM_ID << endl;
 
     //Số byte trên một sector
-    for (int i = 11; i < 13; i++) {
-        boot.Byte_Per_Sector[i - 11] = sector[i];
-    }
-
-    //00 02 -->02 00
-    //cout << result << endl;
-    //cout <<"OEM: "<< boot.OEM_ID << endl;
-    //printf("%02x ", boot.Byte_Per_Sector[1]);
-    //cout << "So byte tren moi sector la: " << boot.Byte_Per_Sector << endl;
+    temp = HSector[12] + HSector[11];
+    boot.Byte_Per_Sector = convertHexToDec(temp);
+    cout << "+ So byte tren moi sector la: " <<temp <<"h  = "<<boot.Byte_Per_Sector<< " byte"<<endl;
     return 0;
 }
