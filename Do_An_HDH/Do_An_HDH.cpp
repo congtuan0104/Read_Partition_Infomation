@@ -70,6 +70,7 @@ int convertHexToDec(string hexVal)
     return dec_val;
 }
 
+
 int main(int argc, char** argv)
 {
     struct BOOTSECTOR {
@@ -93,12 +94,12 @@ int main(int argc, char** argv)
         //char FAT_type[8];
         //char loader[448];
         //char Mark[2];
-        char Jump_Code[3];  //012
-        char OEM_ID[8];     //345678910
+        char Jump_Code[3];  
+        char OEM_ID[8];     
         int Byte_Per_Sector;
-        char Sector_Per_Cluster;
-        char Sector_In_Bootsector[2];
-        char Number_Of_FAT;
+        int Sector_Per_Cluster;
+        int Sector_In_Bootsector;
+        int Number_Of_FAT;
         char Entry_Of_RDET[2];  //Don't care - 0
         char Sector_of_Vol[2];  //Don't care - 0
         char Device_Typec;
@@ -106,8 +107,8 @@ int main(int argc, char** argv)
         char Sector_of_Track[2];
         char Number_Of_Dau_Doc[2];
         char Khoang_Cach_Tu_Mo_Ta_Vol_Den_Dau_Vol[4];
-        char Volume_Size[4];
-        char FAT_Size[4];
+        unsigned int Volume_Size;
+        int FAT_Size;
         char Bit_8_Bat[2];
         char FAT_Version[2];   //FAT32
         char Cluster_Bat_Dau_Cua_RDET[4];
@@ -128,25 +129,48 @@ int main(int argc, char** argv)
     BOOTSECTOR boot;
     string temp;         //Lưu trữ chuỗi hexa của phần đang đọc thông tin  
     ReadSector(L"\\\\.\\H:", 0, sector);
-    
-
+    //Chuyển mảng sector thành mảng hex lưu trong HSector
     for (int i = 0; i < 512; i++) {
         HSector[i] = convertByteToHex(sector[i]);
-        //cout << HSector[i] << " ";
+        cout << HSector[i] << " ";
     }
-
-
-    //Read data from bootsector bootsector
+    cout << endl;
 
     //OS Version
-    //for (int i = 3; i < 11; i++) {
-    //    boot.OEM_ID[i - 3] = sector[i];
-    //}
-    //cout << "OEM: " << boot.OEM_ID << endl;
+    for (int i = 3; i < 11; i++) {
+            boot.OEM_ID[i - 3] = sector[i];
+    }
+    boot.OEM_ID[8] = {'\0'};
+    cout << "+ OEM: " << boot.OEM_ID << endl;
 
     //Số byte trên một sector
     temp = HSector[12] + HSector[11];
     boot.Byte_Per_Sector = convertHexToDec(temp);
     cout << "+ So byte tren moi sector la: " <<temp <<"h  = "<<boot.Byte_Per_Sector<< " byte"<<endl;
+
+    //Số sector trên một cluster
+    temp = HSector[13];
+    boot.Sector_Per_Cluster = convertHexToDec(temp);
+    cout << "+ So sector tren moi cluster la: " << temp << "h  = " << boot.Sector_Per_Cluster << " sector" << endl;
+
+    //Số sector trên vùng bootsector
+    temp = HSector[15] + HSector[14];
+    boot.Sector_In_Bootsector = convertHexToDec(temp);
+    cout << "+ So sector tren vung bootsector la: " << temp << "h  = " << boot.Sector_In_Bootsector << " sector" << endl;
+
+    //Số bảng FAT
+    temp = HSector[16];
+    boot.Number_Of_FAT = convertHexToDec(temp);
+    cout << "+ So bang FAT la: " << temp << "h  = " << boot.Number_Of_FAT << endl;
+
+    //Kích thước mỗi bảng FAT
+    temp = HSector[38] + HSector[37] + HSector[36] + HSector[35];  //Đọc 4 byte từ offset 24
+    boot.FAT_Size = convertHexToDec(temp);
+    cout << "+ Kich thuoc bang FAT la: " << temp << "h  = " << boot.FAT_Size << " sector" << endl;
+
+    //Kích thước volume
+    temp = HSector[34]+ HSector[33]+ HSector[32]+ HSector[31];  //Đọc 4 byte từ offset 20
+    boot.Volume_Size = convertHexToDec(temp);
+    cout << "+ Kich thuoc volume la: " << temp << "h  = " << boot.Volume_Size << "byte = " << boot.Volume_Size / 1024 / 1024 << "MB" << endl;
     return 0;
 }
