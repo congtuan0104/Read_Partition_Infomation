@@ -6,9 +6,7 @@
 using namespace std;
 
 
-vector<BYTE[512]> data;
-//ReadSector(L"\\\\.\\H:", 0, sector);
-int ReadSector(LPCWSTR  drive, int readPoint, BYTE sector[512])
+int ReadSector(LPCWSTR  drive, int readPoint, BYTE* sector, int byteRead)
 {
     int retCode = 0;
     DWORD bytesRead;
@@ -31,15 +29,52 @@ int ReadSector(LPCWSTR  drive, int readPoint, BYTE sector[512])
     SetFilePointer(device, readPoint, NULL, FILE_BEGIN);//Set a Point to Read
     /*DWORD SetFilePointer(HANDLE hFile,LONG   lDistanceToMove,PLONG  lpDistanceToMoveHigh,DWORD  dwMoveMethod);*/
 
-    if (!ReadFile(device, sector, 512, &bytesRead, NULL))
+    /*if (!ReadFile(device, sector, 512, &bytesRead, NULL))
     {
         printf("ReadFile: %u\n", GetLastError());
     }
     else
     {
         printf("Doc sector thanh cong!\n");
-    }
+    }*/
+
+    ReadFile(device, sector, 512 * byteRead, NULL, NULL);
+
+    printf("Doc thanh cong\n");
+
 }
+//int ReadSector(LPCWSTR  drive, int readPoint, BYTE *sector)
+//{
+//    int retCode = 0;
+//    DWORD bytesRead;
+//    HANDLE device = NULL;
+//
+//    device = CreateFile(drive,    // Drive to open
+//        GENERIC_READ,           // Access mode
+//        FILE_SHARE_READ | FILE_SHARE_WRITE,        // Share Mode
+//        NULL,                   // Security Descriptor
+//        OPEN_EXISTING,          // How to create
+//        0,                      // File attributes
+//        NULL);                  // Handle to template
+//    
+//    if (device == INVALID_HANDLE_VALUE) // Open Error
+//    {
+//        printf("CreateFile: %u\n", GetLastError());
+//        return 1;
+//    }
+//
+//    SetFilePointer(device, readPoint, NULL, FILE_BEGIN);//Set a Point to Read
+//    /*DWORD SetFilePointer(HANDLE hFile,LONG   lDistanceToMove,PLONG  lpDistanceToMoveHigh,DWORD  dwMoveMethod);*/
+//
+//    if (!ReadFile(device, sector, 512, &bytesRead, NULL))
+//    {
+//        printf("ReadFile: %u\n", GetLastError());
+//    }
+//    else
+//    {
+//        printf("Doc sector thanh cong!\n");
+//    }
+//}
 
 //Hàm chuyển 1 ký tự ASCII về chuỗi dạng hexa
 string convertByteToHex(BYTE byte) {
@@ -77,28 +112,7 @@ int convertHexToDec(string hexVal)
 
 int main(int argc, char** argv)
 {
-    struct BOOTSECTOR {
-        //char Jump_Code[3];
-        //char OEM[8];
-        //int bytes_per_sector;
-        //char sectors_per_cluster;
-        //int reserved;
-        //char FAT_cnt;
-        //int ROOT_size;
-        //int total_sectors;
-        //char media;
-        //int FAT_size;
-        //int sectors_per_track;
-        //int head_cnt;
-        //long hidden_sectors;
-        //long total_sectors_long;
-        ////char unknown[3];
-        //long serial;
-        //char volume[11];
-        //char FAT_type[8];
-        //char loader[448];
-        //char Mark[2];
-        char Jump_Code[3];  
+    struct BOOTSECTOR { 
         char OEM_ID[8];     
         int Byte_Per_Sector;
         int Sector_Per_Cluster;
@@ -121,12 +135,9 @@ int main(int argc, char** argv)
         char Danh_Rieng[12];
         char Ki_Hieu_Vat_Ly;
         char Danh_Rieng_2;
-        char Ki_Hieu_Nhan_Dien_HDH;
         char Serial_Number_Of_Volume[4];
         char Volume_Label[11];
         char FAT_Type[8];
-        char Doan_Chuong_Trinh_Khoi_Tao[420];
-        char Dau_Hieu_Ket_Thuc_Boot_Sector[2];  //AA 55
     };
     BYTE sector[512];
     string HSector[512]; //Mảng lưu thông tin sector dạng hexa
@@ -135,13 +146,13 @@ int main(int argc, char** argv)
     
     //int count = 0;
     //while()
-    ReadSector(L"\\\\.\\H:", 0, sector);
+    ReadSector(L"\\\\.\\H:", 0, sector,1);
     //Chuyển mảng sector thành mảng hex lưu trong HSector
     for (int i = 0; i < 512; i++) {
         HSector[i] = convertByteToHex(sector[i]);
 
     }
-    /*cout << "     00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F" << endl;
+    cout << "     00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F" << endl;
     int j = 0;
     cout << "00" << " | ";
     for (int i = 0; i < 512; i++) {
@@ -155,7 +166,7 @@ int main(int argc, char** argv)
             else
                 cout << j << " | ";
         }
-    }*/
+    }
     cout << endl;
 
     //OS Version
@@ -201,9 +212,33 @@ int main(int argc, char** argv)
     temp = HSector[47] + HSector[46] + HSector[45] + HSector[44];  //Đọc 4 byte từ offset 2Ch <-> 44d
     boot.Cluster_RDET = convertHexToDec(temp);
     cout << "+ Cluster bat dau RDET la: " << temp << "h  = " << boot.Cluster_RDET << endl;
+    //-------------------------------------------------------------------------------
+    int startSectorOfFAT = boot.Sector_In_Bootsector;
+    int startSectorOfRDET = boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size;
+    BYTE sector2[512*2];
+    int fatByteSize = boot.FAT_Size * boot.Byte_Per_Sector;
+    //BYTE* sector2 = new BYTE(fatByteSize);
+    ReadSector(L"\\\\.\\H:", 512*32, sector2, 2);
+    string HSector2[512]; //Mảng lưu thông tin sector dạng hexa
+    for (int i = 0; i < 512*2; i++) {
+        HSector2[i] = convertByteToHex(sector2[i]);
 
-
-
-
+    }
+    cout << "     00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F" << endl;
+    j = 0;
+    cout << "00" << " | ";
+    for (int i = 0; i < 512*2; i++) {
+        cout << HSector2[i] << " ";
+        if ((i + 1) % 16 == 0)
+        {
+            j++;
+            cout << endl;
+            if (j < 10)
+                cout << "0" << j << " | ";
+            else
+                cout << j << " | ";
+        }
+    }
+    cout << endl;
     return 0;
 }
