@@ -267,18 +267,21 @@ int main(int argc, char** argv)
     temp = HFAT1[(4 * k) + 3] + HFAT1[(4 * k) + 2] + HFAT1[(4 * k) + 1] + HFAT1[4 * k];
     if (temp != "0ffffff8")
         RDET_cluster_list.push_back(k);
-    while (temp != "0ffffff8") {
-        RDET_cluster_list.push_back(k);
-        cout << k << " ";
-        k = convertHexToDec(temp);
-        temp = HFAT1[4 * k + 3] + HFAT1[4 * k + 2] + HFAT1[4 * k + 1] + HFAT1[4 * k];
+    else {
+        while (temp != "0ffffff8") {
+            RDET_cluster_list.push_back(k);
+            cout << k << " ";
+            k = convertHexToDec(temp);
+            temp = HFAT1[4 * k + 3] + HFAT1[4 * k + 2] + HFAT1[4 * k + 1] + HFAT1[4 * k];
+        }
     }
-   
+    
     cout << "RDET nam tren cac cluster: ";
     for (int i = 0; i < RDET_cluster_list.size(); i++) {
         cout << RDET_cluster_list[i] << " ";
     }
-
+    cout << endl << endl;
+    
     BYTE* RDET = new BYTE[32 * 512];
     string* HRDET = new string[32 * 512];
     ReadSector(L"\\\\.\\H:", boot.Volume_Size+32*512, RDET, 32*512);
@@ -291,7 +294,7 @@ int main(int argc, char** argv)
     //freopen("RDET2.txt", "wt", stdout);
     //int j = 0;
     //for (int i = 0; i < 32 * 512; i++) {
-    //    cout << RDET[i];
+    //    cout << HRDET[i] << " ";
     //    if ((i + 1) % 16 == 0)
     //    {
     //        j++;
@@ -306,23 +309,23 @@ int main(int argc, char** argv)
             index20.push_back(i);
 
     }
+    vector<int>index10;
+    for (int i = 0; i < 512; i++) {
+        if (HRDET[32 * i + 11] == "10")
+            index10.push_back(i);
+
+    }
 
     cout << "index 20: ";
     for (int i = 0; i < index20.size(); i++)
         cout << index20[i] << " ";
-    cout << endl << "Danh sach tap tin:" << endl;
-    //freopen("test.txt", "wt", stdout);
- /*   vector<int>index0f;
-    for (int i = 0; i < 512; i++) {
-        if (HRDET[32 * i + 11] == "0f")
-            index0f.push_back(i);
+    cout << endl << "Danh sach tap tin/thu muc:" << endl;
 
-    }*/
 
     
      for(int m = 0; m < index20.size(); m++)
      {
-         cout << "Tap tin/Thu muc thu " << m + 1 << ": ";
+         cout << "Tap tin thu " << m + 1 << ": ";
          int l = index20[m] - 1;
          if (HRDET[32 * l + 11] == "0f")
          {
@@ -370,9 +373,53 @@ int main(int argc, char** argv)
          
         
      }
-     //fclose(stdout);
-    
+
+     for (int m = 0; m < index10.size(); m++)
+     {
+         cout << "Thu muc thu " << m + 1 << ": ";
+         int l = index10[m] - 1;
+         if (HRDET[32 * l + 11] == "0f")
+         {
+             while (true) {
+                 if (HRDET[32 * l + 11] == "0f") {
+                     // Đọc 10 byte tại vị trí 1
+                     for (int j = 0; j < 10; j++)
+                     {
+                         cout << RDET[l * 32 + 1 + j];
+                     }
+                     //Đọc 12 byte tại vị trí e = 14
+                     for (int j = 0; j < 12; j++)
+                     {
+                         cout << RDET[l * 32 + 14 + j];
+                     }
+                     //Đọc 4 byte tại vị trí 1c = 28
+                     for (int j = 0; j < 4; j++)
+                     {
+                         cout << RDET[l * 32 + 28 + j];
+                     }
+                     cout << "\n";
+                 }
+                 else {
+                     break;
+                 }
+                 l--;
+                 if (l < 0) break;
+
+             }
+         }
+         else {
+             l++;
+             for (int j = 0; j < 11; j++)
+             {
+                 cout << RDET[l * 32 + j];
+             }
+             cout << endl;
+         }
+
+
+     }
     delete[] HFAT1;
     delete[] RDET;
+    delete[] HRDET;
     return 0;
 }
