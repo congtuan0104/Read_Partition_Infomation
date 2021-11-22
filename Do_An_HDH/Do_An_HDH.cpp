@@ -12,6 +12,7 @@ using namespace std;
 string drive;
 LPCWSTR driveTemp;
 
+
 struct BOOTSECTOR {
     char OEM_ID[9];
     int Byte_Per_Sector;
@@ -139,7 +140,7 @@ vector<int> Folder_Cluster_List(int clusterBatDau,string*HFAT) { //Nhập vào c
     return listTemp;
 }
 
-void ReadFileInFolder(int sector,int bytePerSector,int stt) {
+void ReadFileInFolder(int sector,int bytePerSector,int stt) {   //Hàm đọc thông tin các tệp tin trong thư mục
 
                 BYTE* RDETT = new BYTE[bytePerSector*8];
                 string* HRDETT = new string[bytePerSector*8];
@@ -159,12 +160,12 @@ void ReadFileInFolder(int sector,int bytePerSector,int stt) {
                         iindex20.push_back(i);
 
                 }
-                if (iindex20.size() > 0) {
+                if (iindex20.size() > 0) {      //Nếu có trên một tệp tin trong thư much thì liệt kê các tệp tin đó
                     cout << "Danh sach tap tin:" << endl;
 
                     for (int m = 0; m < iindex20.size(); m++)
                     {
-                        cout << "Tap tin thu " << stt <<"-" << m + 1 << ": ";
+                        cout << "Tap tin thu " << stt << "-" << m + 1 << ": ";
                         int l = iindex20[m] - 1;
                         if (HRDETT[32 * l + 11] == "0f")
                         {
@@ -219,13 +220,135 @@ void ReadFileInFolder(int sector,int bytePerSector,int stt) {
                             cout << "    Kich co: " << size << " byte = " << size / 1024 << " KB";
                         cout << endl;
                     }
-                    
+
                 }
                 else {
                     cout << "Thu muc rong" << endl;
                 }
                 delete[] RDETT;
                 delete[] HRDETT;
+}
+
+void ReadChildrenFolder(int sector, int bytePerSector, int stt, string* HFAT ,BOOTSECTOR boot) {    //Hàm đọc thông tin thư mục con và các tệp tin con.
+    BYTE* RDETT = new BYTE[bytePerSector * 8];
+    string* HRDETT = new string[bytePerSector * 8];
+    string temp;
+    ReadSector(driveTemp, sector * bytePerSector, RDETT, bytePerSector * 8);
+
+    for (int i = 0; i < bytePerSector * 8; i++)
+    {
+        HRDETT[i] = convertByteToHex(RDETT[i]);
+    }
+
+    vector<int> iindex10;
+    for (int i = 0; i < bytePerSector / 4; i++) {
+        if (HRDETT[32 * i + 11] == "10")
+            iindex10.push_back(i);
+    }
+    
+    if (iindex10.size() == 0)
+        return;
+    else {
+        cout << endl << endl << "Danh sach thu muc:" << endl;
+        for (int m = 0; m < iindex10.size(); m++)
+        {
+            cout << "Thu muc thu " << m + 1 << ": ";
+            int l = iindex10[m] - 1;
+            if (HRDETT[32 * l + 11] == "0f")
+            {
+                while (true) {
+                    if (HRDETT[32 * l + 11] == "0f") {
+                        // Đọc 10 byte tại vị trí 1
+                        for (int j = 0; j < 10; j++)
+                        {
+                            cout << RDETT[l * 32 + 1 + j];
+                        }
+                        //Đọc 12 byte tại vị trí e = 14
+                        for (int j = 0; j < 12; j++)
+                        {
+                            cout << RDETT[l * 32 + 14 + j];
+                        }
+                        //Đọc 4 byte tại vị trí 1c = 28
+                        for (int j = 0; j < 4; j++)
+                        {
+                            cout << RDETT[l * 32 + 28 + j];
+                        }
+
+                    }
+                    else {
+                        break;
+                    }
+                    l--;
+                    if (l < 0)
+                        break;
+                }
+
+                l = iindex10[m];
+                cout << endl;
+                temp = HRDETT[32 * l + 21] + HRDETT[32 * l + 20];
+                int ttemp = convertHexToDec(temp);
+                temp = HRDETT[32 * l + 27] + HRDETT[32 * l + 26];
+                ttemp = ttemp + convertHexToDec(temp);
+                vector<int>folderListTemp = Folder_Cluster_List(ttemp, HFAT);
+                /*cout << " + Chiem cac cluster: ";
+                for (int i = 0; i < folderListTemp.size(); i++)
+                    cout << folderListTemp[i] << "  ";*/
+
+                    /*cout << "   --> Chiem cac sector: ";
+                    for (int i = 0; i < folderListTemp.size(); i++) {
+                        cout << "     " << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster << "->";
+                        cout << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 1) * boot.Sector_Per_Cluster - 1 << endl;
+                    }*/
+
+
+
+                int sectorTemp;
+                for (int i = 0; i < folderListTemp.size(); i++) {
+                    sectorTemp = boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster;
+                    ReadFileInFolder(sectorTemp, boot.Byte_Per_Sector, m + 1);
+                }
+
+            }
+            else {
+                l++;
+                for (int j = 0; j < 11; j++)
+                {
+                    cout << RDETT[l * 32 + j];
+                }
+
+                cout << endl;
+                l = iindex10[m];
+                cout << endl;
+                temp = HRDETT[32 * l + 21] + HRDETT[32 * l + 20];
+                int ttemp = convertHexToDec(temp);
+                temp = HRDETT[32 * l + 27] + HRDETT[32 * l + 26];
+                ttemp = ttemp + convertHexToDec(temp);
+                vector<int>folderListTemp = Folder_Cluster_List(ttemp, HFAT);
+                /* cout << " + Chiem cac cluster: ";
+                 for (int i = 0; i < folderListTemp.size(); i++)
+                     cout << folderListTemp[i] << "  ";*/
+
+                     /*cout << "   --> Chiem cac sector: ";
+                     for (int i = 0; i < folderListTemp.size(); i++) {
+                         cout << "     " << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster << "->";
+                         cout << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 1) * boot.Sector_Per_Cluster - 1 << endl;
+                     }*/
+
+
+
+                int sectorTemp;
+                for (int i = 0; i < folderListTemp.size(); i++) {
+                    sectorTemp = boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster;
+                    ReadFileInFolder(sectorTemp, boot.Byte_Per_Sector, m + 1);
+                }
+
+            }
+            cout << endl;
+        }
+    }
+    delete[]RDETT;
+    delete[]HRDETT;
+    return;
 }
 
 int main(int argc, char** argv)
@@ -349,6 +472,7 @@ int main(int argc, char** argv)
         
     else {
         cout << "Doc thong tin phan vung FAT32" << endl;
+        
         BOOTSECTOR boot;
 
         //Volume Label
@@ -498,123 +622,57 @@ int main(int argc, char** argv)
 
         }
 
-        cout << "index 20: ";
 
-        for (int i = 0; i < index20.size(); i++)
-            cout << index20[i] << " ";
-        cout << endl << "Danh sach tap tin:" << endl;
+        if (index20.size() > 0) {
+            cout << endl << "Danh sach tap tin:" << endl;
 
-
-
-        for (int m = 0; m < index20.size(); m++)
-        {
-            cout << "Tap tin thu " << m + 1 << ": ";
-            int l = index20[m] - 1;
-            if (HRDET[32 * l + 11] == "0f")
+            for (int m = 0; m < index20.size(); m++)
             {
-                while (true) {
-                    if (HRDET[32 * l + 11] == "0f") {
-                        // Đọc 10 byte tại vị trí 1
-                        for (int j = 0; j < 10; j++)
-                        {
-                            cout << RDET[l * 32 + 1 + j];
-                        }
-                        //Đọc 12 byte tại vị trí e = 14
-                        for (int j = 0; j < 12; j++)
-                        {
-                            cout << RDET[l * 32 + 14 + j];
-                        }
-                        //Đọc 4 byte tại vị trí 1c = 28
-                        for (int j = 0; j < 4; j++)
-                        {
-                            cout << RDET[l * 32 + 28 + j];
-                        }
-                    }
-                    else {
-                        break;
-                    }
-                    l--;
-                    if (l < 0) break;
-
-                }
-                l++;
-            }
-            else {
-                l++;
-                for (int j = 0; j < 11; j++)
+                cout << "Tap tin thu " << m + 1 << ": ";
+                int l = index20[m] - 1;
+                if (HRDET[32 * l + 11] == "0f")
                 {
-                    if (j == 7) {
-                        cout << ".";
-                        continue;
+                    while (true) {
+                        if (HRDET[32 * l + 11] == "0f") {
+                            // Đọc 10 byte tại vị trí 1
+                            for (int j = 0; j < 10; j++)
+                            {
+                                cout << RDET[l * 32 + 1 + j];
+                            }
+                            //Đọc 12 byte tại vị trí e = 14
+                            for (int j = 0; j < 12; j++)
+                            {
+                                cout << RDET[l * 32 + 14 + j];
+                            }
+                            //Đọc 4 byte tại vị trí 1c = 28
+                            for (int j = 0; j < 4; j++)
+                            {
+                                cout << RDET[l * 32 + 28 + j];
+                            }
+                        }
+                        else {
+                            break;
+                        }
+                        l--;
+                        if (l < 0) break;
+
                     }
-
-
-                    cout << RDET[l * 32 + j];
+                    l++;
                 }
-            }
-            l = index20[m];
-            cout << endl;
-            temp = HRDET[32 * l + 21] + HRDET[32 * l + 20];
-            int ttemp = convertHexToDec(temp);
-            temp = HRDET[32 * l + 27] + HRDET[32 * l + 26];
-            ttemp = ttemp + convertHexToDec(temp);
-            vector<int>folderListTemp = Folder_Cluster_List(ttemp, HFAT1);
-            cout << " + Chiem cac cluster: ";
-            for (int i = 0; i < folderListTemp.size(); i++)
-                cout << folderListTemp[i] << "  ";
-            cout << endl;
-            cout << "   --> Chiem cac sector: " << endl;
-            for (int i = 0; i < folderListTemp.size(); i++) {
-                cout << "     " << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster << "->";
-                cout << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 1) * boot.Sector_Per_Cluster - 1 << endl;
-            }
-
-            
-            temp = HRDET[32 * l + 31] + HRDET[32 * l + 30] + HRDET[32 * l + 29] + HRDET[32 * l + 28];
-            int size = convertHexToDec(temp);
-
-            if (size >= 1024 * 1024)
-                cout << "    Kich co: " << size << " byte = " << size / 1024 / 1024 << " MB";
-            else
-                cout << "    Kich co: " << size << " byte = " << size / 1024 << " KB";
-            cout << endl;
-        }
-
-        cout << endl << endl << "Danh sach thu muc:" << endl;
-        for (int m = 0; m < index10.size(); m++)
-        {
-            cout << "Thu muc thu " << m + 1 << ": ";
-            int l = index10[m] - 1;
-            if (HRDET[32 * l + 11] == "0f")
-            {
-                while (true) {
-                    if (HRDET[32 * l + 11] == "0f") {
-                        // Đọc 10 byte tại vị trí 1
-                        for (int j = 0; j < 10; j++)
-                        {
-                            cout << RDET[l * 32 + 1 + j];
-                        }
-                        //Đọc 12 byte tại vị trí e = 14
-                        for (int j = 0; j < 12; j++)
-                        {
-                            cout << RDET[l * 32 + 14 + j];
-                        }
-                        //Đọc 4 byte tại vị trí 1c = 28
-                        for (int j = 0; j < 4; j++)
-                        {
-                            cout << RDET[l * 32 + 28 + j];
+                else {
+                    l++;
+                    for (int j = 0; j < 11; j++)
+                    {
+                        if (j == 7) {
+                            cout << ".";
+                            continue;
                         }
 
+
+                        cout << RDET[l * 32 + j];
                     }
-                    else {
-                        break;
-                    }
-                    l--;
-                    if (l < 0)
-                        break;
                 }
-
-                l = index10[m];
+                l = index20[m];
                 cout << endl;
                 temp = HRDET[32 * l + 21] + HRDET[32 * l + 20];
                 int ttemp = convertHexToDec(temp);
@@ -624,64 +682,130 @@ int main(int argc, char** argv)
                 cout << " + Chiem cac cluster: ";
                 for (int i = 0; i < folderListTemp.size(); i++)
                     cout << folderListTemp[i] << "  ";
-                
-                cout << "   --> Chiem cac sector: ";
-                for (int i = 0; i < folderListTemp.size(); i++) {
-                    cout <<"     "<< boot.Sector_In_Bootsector +boot.Number_Of_FAT*boot.FAT_Size + (folderListTemp[i]-2) * boot.Sector_Per_Cluster << "->";
-                    cout << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 1) * boot.Sector_Per_Cluster -1 << endl;
-                }
-
-                
-                
-                int sectorTemp;
-                for (int i = 0; i < folderListTemp.size(); i++) {
-                        sectorTemp = boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster;
-                        ReadFileInFolder(sectorTemp, boot.Byte_Per_Sector,m+1);
-                }
-                
-            }
-            else {
-                l++;
-                for (int j = 0; j < 11; j++)
-                {
-                    cout << RDET[l * 32 + j];
-                }
-                
                 cout << endl;
-                l = index10[m];
-                cout << endl;
-                temp = HRDET[32 * l + 21] + HRDET[32 * l + 20];
-                int ttemp = convertHexToDec(temp);
-                temp = HRDET[32 * l + 27] + HRDET[32 * l + 26];
-                ttemp = ttemp + convertHexToDec(temp);
-                vector<int>folderListTemp = Folder_Cluster_List(ttemp, HFAT1);
-                cout << " + Chiem cac cluster: ";
-                for (int i = 0; i < folderListTemp.size(); i++)
-                    cout << folderListTemp[i] << "  ";
-
-                cout << "   --> Chiem cac sector: ";
+                cout << "   --> Chiem cac sector: " << endl;
                 for (int i = 0; i < folderListTemp.size(); i++) {
                     cout << "     " << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster << "->";
                     cout << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 1) * boot.Sector_Per_Cluster - 1 << endl;
                 }
 
+                temp = HRDET[32 * l + 31] + HRDET[32 * l + 30] + HRDET[32 * l + 29] + HRDET[32 * l + 28];
+                int size = convertHexToDec(temp);
 
-
-                int sectorTemp;
-                for (int i = 0; i < folderListTemp.size(); i++) {
-                    sectorTemp = boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster;
-                    ReadFileInFolder(sectorTemp, boot.Byte_Per_Sector,m+1);
-                }
-               
+                if (size >= 1024 * 1024)
+                    cout << "    Kich co: " << size << " byte = " << size / 1024 / 1024 << " MB";
+                else
+                    cout << "    Kich co: " << size << " byte = " << size / 1024 << " KB";
+                cout << endl;
             }
-            cout << endl;
+        }
+        
 
+        if(index10.size()>0){
+            cout << endl << endl << "Danh sach thu muc:" << endl;
+            for (int m = 0; m < index10.size(); m++)
+            {
+                cout << "Thu muc thu " << m + 1 << ": ";
+                int l = index10[m] - 1;
+                if (HRDET[32 * l + 11] == "0f")
+                {
+                    while (true) {
+                        if (HRDET[32 * l + 11] == "0f") {
+                            // Đọc 10 byte tại vị trí 1
+                            for (int j = 0; j < 10; j++)
+                            {
+                                cout << RDET[l * 32 + 1 + j];
+                            }
+                            //Đọc 12 byte tại vị trí e = 14
+                            for (int j = 0; j < 12; j++)
+                            {
+                                cout << RDET[l * 32 + 14 + j];
+                            }
+                            //Đọc 4 byte tại vị trí 1c = 28
+                            for (int j = 0; j < 4; j++)
+                            {
+                                cout << RDET[l * 32 + 28 + j];
+                            }
+
+                        }
+                        else {
+                            break;
+                        }
+                        l--;
+                        if (l < 0)
+                            break;
+                    }
+
+                    l = index10[m];
+                    cout << endl;
+                    temp = HRDET[32 * l + 21] + HRDET[32 * l + 20];
+                    int ttemp = convertHexToDec(temp);
+                    temp = HRDET[32 * l + 27] + HRDET[32 * l + 26];
+                    ttemp = ttemp + convertHexToDec(temp);
+                    vector<int>folderListTemp = Folder_Cluster_List(ttemp, HFAT1);
+                    cout << " + Chiem cac cluster: ";
+                    for (int i = 0; i < folderListTemp.size(); i++)
+                        cout << folderListTemp[i] << "  ";
+
+                    cout << "   --> Chiem cac sector: ";
+                    for (int i = 0; i < folderListTemp.size(); i++) {
+                        cout << "     " << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster << "->";
+                        cout << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 1) * boot.Sector_Per_Cluster - 1 << endl;
+                    }
+
+
+
+                    int sectorTemp;
+                    for (int i = 0; i < folderListTemp.size(); i++) {
+                        sectorTemp = boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster;
+                        ReadFileInFolder(sectorTemp, boot.Byte_Per_Sector, m + 1);
+                        ReadChildrenFolder(sectorTemp, boot.Byte_Per_Sector, m + 1, HFAT1,boot);
+                    }
+
+                }
+                else {
+                    l++;
+                    for (int j = 0; j < 11; j++)
+                    {
+                        cout << RDET[l * 32 + j];
+                    }
+
+                    cout << endl;
+                    l = index10[m];
+                    cout << endl;
+                    temp = HRDET[32 * l + 21] + HRDET[32 * l + 20];
+                    int ttemp = convertHexToDec(temp);
+                    temp = HRDET[32 * l + 27] + HRDET[32 * l + 26];
+                    ttemp = ttemp + convertHexToDec(temp);
+                    vector<int>folderListTemp = Folder_Cluster_List(ttemp, HFAT1);
+                    cout << " + Chiem cac cluster: ";
+                    for (int i = 0; i < folderListTemp.size(); i++)
+                        cout << folderListTemp[i] << "  ";
+
+                    cout << "   --> Chiem cac sector: ";
+                    for (int i = 0; i < folderListTemp.size(); i++) {
+                        cout << "     " << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster << "->";
+                        cout << boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 1) * boot.Sector_Per_Cluster - 1 << endl;
+                    }
+
+
+
+                    int sectorTemp;
+                    for (int i = 0; i < folderListTemp.size(); i++) {
+                        sectorTemp = boot.Sector_In_Bootsector + boot.Number_Of_FAT * boot.FAT_Size + (folderListTemp[i] - 2) * boot.Sector_Per_Cluster;
+                        ReadFileInFolder(sectorTemp, boot.Byte_Per_Sector, m + 1);
+                        ReadChildrenFolder(sectorTemp, boot.Byte_Per_Sector, m + 1, HFAT1, boot);
+                    }
+
+                }
+                cout << endl;
+
+            }
         }
         delete[] HFAT1;
         delete[] RDET;
         delete[] HRDET;
     }
         
-    
     return 0;
 }
